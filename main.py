@@ -60,6 +60,15 @@ def find_search_keys(data, indentation=0):
                     filtered_data.update(find_search_keys(item, indentation + 1))
     return filtered_data
 
+def mock_ai_analyze(data):
+    """Sahte AI analizi"""
+    new_model_api_key = os.getenv("NEW_MODEL_API_KEY")
+    if new_model_api_key:
+        link_count = sum(1 for value in data.values() if isinstance(value, str) and value.startswith("http"))
+        logging.info(f"🤖 AI Analizi: {link_count} adet link bulundu, sistem harika!")
+    else:
+        logging.error("NEW_MODEL_API_KEY değişkeni bulunamadı.")
+
 def main():
     load_environment_variables()
     token = get_github_token()
@@ -74,6 +83,7 @@ def main():
         save_data_to_json(data, 'github_response.json')
         filtered_data = find_search_keys(data)
         save_data_to_json(filtered_data, 'filtrelenmis_linkler.json')
+        mock_ai_analyze(filtered_data)  # Fonksiyonu main() akışının en sonuna ekliyoruz
     else:
         logging.error("Veri çekerken bir hata oluştu.")
 
