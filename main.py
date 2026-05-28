@@ -1,5 +1,6 @@
 import requests
 import os
+import json
 from dotenv import load_dotenv
 
 # .env dosyasının içindeki gizli kasayı açar
@@ -18,10 +19,11 @@ try:
     
     data = response.json()
     
-    # Sadece ilk 5 anahtarı numaralandırarak yazdırır
-    for i, key in enumerate(list(data.keys())[:5], 1):
-        print(f"{i}. {key}")
-        
+    # Verileri json dosyasına kaydeder
+    with open('github_response.json', 'w') as file:
+        json.dump(data, file, indent=4)
+
+    print('Veriler başarıyla JSON dosyasına kaydedildi.')
 except requests.exceptions.Timeout:
     print("Hata: GitHub cevap vermedi (Zaman Aşımı).")
 except requests.exceptions.ConnectionError:
