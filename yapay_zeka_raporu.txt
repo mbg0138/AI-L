@@ -1,0 +1,1 @@
+Verilen linkler, GitHub API'sini kullanarak çeşitli aramalar yapmak için kullanılır. Bu linkler sayesinde, kod, commit,-issue, etiket, depo, konu ve kullanıcıları sorgulayarak ilgili bilgilerin bulunması sağlanabilmektedir.
