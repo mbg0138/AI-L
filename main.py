@@ -63,6 +63,10 @@ def analyze_with_groq(data):
                 messages=[{"role": "user", "content": prompt + " " + json_string}]
             )
             logging.info(f"\n🤖 AI ÖZETİ:\n{response.choices[0].message.content}\n")
+            # AI raporu dosyasına yazma
+            with open('yapay_zeka_raporu.txt', 'w') as file:
+                file.write(response.choices[0].message.content)
+            logging.info('AI raporu yapay_zeka_raporu.txt dosyasına yazıldı.')
         except Exception as e:
             logging.error(f"Groq API'si ile analiz ederken bir hata oluştu: {e}")
     else:
