@@ -1,10 +1,9 @@
-# src/main.py
-
 import requests
 import os
 import json
 from dotenv import load_dotenv
 import logging
+from groq import Groq
 
 # Logger ayarları
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -12,15 +11,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def load_environment_variables():
     """dotenv dosyasındaki değişkenleri yükler"""
     load_dotenv()
-
-def get_github_token():
-    """GITHUB_TEST_TOKEN değişkenini oku"""
-    token = os.getenv("GITHUB_TEST_TOKEN")
-    if token:
-        return token
-    else:
-        logging.error("GITHUB_TEST_TOKEN değişkeni bulunamadı.")
-        return None
 
 def fetch_github_data(url, timeout=10):
     """GitHub API'den veri çeker"""
@@ -31,7 +21,7 @@ def fetch_github_data(url, timeout=10):
     except requests.exceptions.Timeout:
         logging.error("GitHub API'den veri çekerken zaman aşımı oldu.")
     except requests.exceptions.ConnectionError:
-        logging.error("İnternet bağlantınız koptu veya GitHub çöktü.")
+        logging.error("İnternet bağlantınız koptu veya GitHub çöktü.");
     except requests.exceptions.RequestException as e:
         logging.error(f"Beklenmeyen bir hata oluştu: {e}")
     return None
@@ -60,30 +50,33 @@ def find_search_keys(data, indentation=0):
                     filtered_data.update(find_search_keys(item, indentation + 1))
     return filtered_data
 
-def mock_ai_analyze(data):
-    """Sahte AI analizi"""
-    new_model_api_key = os.getenv("NEW_MODEL_API_KEY")
-    if new_model_api_key:
-        link_count = sum(1 for value in data.values() if isinstance(value, str) and value.startswith("http"))
-        logging.info(f"🤖 AI Analizi: {link_count} adet link bulundu, sistem harika!")
+def analyze_with_groq(data):
+    """Groq API'sini kullanarak verileri analiz eder"""
+    token = os.getenv("NEW_MODEL_API_KEY")
+    if token:
+        try:
+            client = Groq(api_key=token)
+            json_string = json.dumps(data)
+            prompt = 'Sen bir yazılım asistanısın. Sana verilen linklerin ne işe yaradığını sadece 2 cümleyle özetle.'
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt + " " + json_string}]
+            )
+            logging.info(f"\n🤖 AI ÖZETİ:\n{response.choices[0].message.content}\n")
+        except Exception as e:
+            logging.error(f"Groq API'si ile analiz ederken bir hata oluştu: {e}")
     else:
         logging.error("NEW_MODEL_API_KEY değişkeni bulunamadı.")
 
 def main():
     load_environment_variables()
-    token = get_github_token()
-    if token:
-        logging.info(f"Kullanılan Token: {token}")
-    else:
-        return
-
     url = 'https://api.github.com'
     data = fetch_github_data(url)
     if data:
         save_data_to_json(data, 'github_response.json')
         filtered_data = find_search_keys(data)
         save_data_to_json(filtered_data, 'filtrelenmis_linkler.json')
-        mock_ai_analyze(filtered_data)  # Fonksiyonu main() akışının en sonuna ekliyoruz
+        analyze_with_groq(filtered_data)  # Yeni fonksiyonu çağırıyoruz
     else:
         logging.error("Veri çekerken bir hata oluştu.")
 
