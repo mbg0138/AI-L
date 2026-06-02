@@ -35,21 +35,33 @@ def save_data_to_json(data, filename):
     except Exception as e:
         logging.error(f"Verileri {filename} dosyasına kaydetme hatası: {e}")
 
-def find_search_keys(data, indentation=0):
-    """JSON verilerini arar ve 'search' kelimesi geçen anahtarları bulur"""
-    filtered_data = {}
-    for key, value in data.items():
-        if 'search' in key.lower():
-            logging.info('  ' * indentation + f"{key}: {value}")
-            filtered_data[key] = value
-        if isinstance(value, dict):
-            filtered_data.update(find_search_keys(value, indentation + 1))
-        elif isinstance(value, list):
-            for item in value:
-                if isinstance(item, dict):
-                    filtered_data.update(find_search_keys(item, indentation + 1))
-    return filtered_data
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def extract_top_repos(data):
+    """Gelen veriden ilk 5 depoyu çıkarır"""
+    top_repos = []
+    for repo in data['items'][:5]:
+        top_repo = {
+            'name': repo['name'],
+            'description': repo['description'],
+            'stargazers_count': repo['stargazers_count'],
+            'html_url': repo['html_url']
+        }
+        top_repos.append(top_repo)
+    return top_repos
 def analyze_with_groq(data):
     """Groq API'sini kullanarak verileri analiz eder"""
     token = os.getenv("NEW_MODEL_API_KEY")
@@ -57,16 +69,19 @@ def analyze_with_groq(data):
         try:
             client = Groq(api_key=token)
             json_string = json.dumps(data)
-            prompt = 'Sen bir yazılım asistanısın. Sana verilen linklerin ne işe yaradığını sadece 2 cümleyle özetle.'
+
+            prompt = 'Sen kıdemli bir teknoloji analistisin. Sana verilen trend GitHub projelerini incele ve yazılımcılar için Türkçe heyecan verici bir trend bülteni özeti hazırla.'
             response = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt + " " + json_string}]
             )
             logging.info(f"\n🤖 AI ÖZETİ:\n{response.choices[0].message.content}\n")
             # AI raporu dosyasına yazma
-            with open('yapay_zeka_raporu.txt', 'w') as file:
+
+            with open('trend_raporu.txt', 'w') as file:
                 file.write(response.choices[0].message.content)
-            logging.info('AI raporu yapay_zeka_raporu.txt dosyasına yazıldı.')
+
+            logging.info('AI raporu trend_raporu.txt dosyasına yazıldı.')
         except Exception as e:
             logging.error(f"Groq API'si ile analiz ederken bir hata oluştu: {e}")
     else:
@@ -74,13 +89,17 @@ def analyze_with_groq(data):
 
 def main():
     load_environment_variables()
-    url = 'https://api.github.com'
+
+    url = 'https://api.github.com/search/repositories?q=language:python&sort=stars&order=desc'
     data = fetch_github_data(url)
     if data:
         save_data_to_json(data, 'github_response.json')
-        filtered_data = find_search_keys(data)
-        save_data_to_json(filtered_data, 'filtrelenmis_linkler.json')
-        analyze_with_groq(filtered_data)  # Yeni fonksiyonu çağırıyoruz
+
+
+
+        top_repos = extract_top_repos(data)
+        save_data_to_json(top_repos, 'filtrelenmis_linkler.json')
+        analyze_with_groq(top_repos)  # Yeni fonksiyonu çağırıyoruz
     else:
         logging.error("Veri çekerken bir hata oluştu.")
 

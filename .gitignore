@@ -2,3 +2,4 @@ venv/
 .env
 github_response.json
 filtrelenmis_linkler.json
+trend_raporu.txt
