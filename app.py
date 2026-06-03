@@ -39,7 +39,7 @@ def get_github_repos(search_term):
 def analyze_with_groq(repo_data):
     """Çekilen projeleri Llama 3.3'e verip yorumlatır"""
     # .env dosyasından key'i al
-    token = os.getenv("GROQ_API_KEY") or os.getenv("NEW_MODEL_API_KEY")
+    token = os.getenv("NEW_MODEL_API_KEY") or os.getenv("NEW_MODEL_API_KEY")
     if not token:
         raise ValueError("API Key bulunamadı! Lütfen .env dosyanı kontrol et.")
     

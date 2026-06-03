@@ -12,6 +12,13 @@ def load_environment_variables():
     """dotenv dosyasındaki değişkenleri yükler"""
     load_dotenv()
 
+    print("1. Telegram Anahtarı:", os.getenv("TELEGRAM_TOKEN"))
+print("2. Yeni Model Anahtarı:", os.getenv("NEW_MODEL_API_KEY"))
+print("3. Eski Groq Anahtarı:", os.getenv("GROQ_API_KEY"))
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+GROQ_API_KEY = os.getenv("NEW_MODEL_API_KEY")
+
 def fetch_github_data(url, timeout=10):
     """GitHub API'den veri çeker"""
     try:

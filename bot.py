@@ -5,8 +5,9 @@ import logging
 import os
 from dotenv import load_dotenv
 from urllib.parse import quote
-from groq import Groq  # Groq kütüphanesini eklemeyi unutmuştu, biz ekledik!
-
+from groq import Groq
+import sqlite3
+from datetime import datetime
 # Loglama ayarları (Kara Kutu)
 logging.basicConfig(
     filename='bot_log.log',
@@ -17,11 +18,18 @@ logging.basicConfig(
 # Çevresel değişkenleri yükle
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-# İŞTE BURAYI DÜZELTTİK: Senin .env dosyasındaki anahtar ismini yazdık
 GROQ_API_KEY = os.getenv("NEW_MODEL_API_KEY") 
 
 # Bot'u başlatalım
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
+
+def init_db():
+    conn = sqlite3.connect('bot_database.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS searches
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, username TEXT, search_query TEXT, timestamp TEXT)''')
+    conn.commit()
+    conn.close()
 
 def get_github_repos(search_term):
     """GitHub'dan en popüler 5 projeyi çeker"""
@@ -64,6 +72,34 @@ def analyze_with_groq(repo_data):
 def send_welcome(message):
     bot.reply_to(message, "🚀 Merhaba! Ben senin kişisel AI Trend asistanınım.\nHangi teknolojiyi araştırmak istersin? (Örn: python, react, game development)")
 
+@bot.message_handler(commands=['admin'])
+def admin_panel(message):
+    try:
+        # Veritabanına bağlanıp son 5 aramayı tersine sıralayarak çekiyoruz
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute("SELECT username, search_query, timestamp FROM searches ORDER BY id DESC LIMIT 5")
+        rows = c.fetchall()
+        conn.close()
+
+        if not rows:
+            bot.reply_to(message, "Veritabanı şu an bomboş patron.")
+            return
+
+        rapor_metni = "👑 **PATRON RAPORU - SON 5 ARAMA** 👑\n\n"
+        for row in rows:
+            kullanici = row[0] if row[0] else "Gizli_Kullanici" # Kullanıcı adı yoksa gizli yazsın
+            kelime = row[1]
+            zaman = row[2]
+            rapor_metni += f"👤 @{kullanici} ➡️ 🔍 {kelime}\n🕒 {zaman}\n➖➖➖➖➖➖\n"
+
+        bot.reply_to(message, rapor_metni)
+
+    except Exception as e:
+        bot.reply_to(message, f"Rapor çekilirken hata oluştu: {e}")
+
+# Normal bir mesaj (kelime) yazılınca çalışacak ana fonksiyon
+@bot.message_handler(func=lambda message: True)
 # Normal bir mesaj (kelime) yazılınca çalışacak ana fonksiyon
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
@@ -86,14 +122,50 @@ def handle_message(message):
         # 2. Veriyi Groq'a (Llama'ya) gönder ve analiz raporunu al
         ai_report = analyze_with_groq(repos)
         
-        # 3. Sonucu kullanıcıya Telegram'dan gönder
-        bot.edit_message_text(f"📊 **Trend Raporu: {search_query}**\n\n{ai_report}", chat_id=message.chat.id, message_id=waiting_message.message_id, parse_mode="Markdown")
+        # 3. Sonucu kullanıcıya Telegram'dan gönder (B Planlı Sistem)
+        try:
+            # Önce havalı (Markdown) göndermeyi dene
+            bot.edit_message_text(f"📊 *Trend Raporu: {search_query}*\n\n{ai_report}", chat_id=message.chat.id, message_id=waiting_message.message_id, parse_mode="Markdown")
+        except:
+            # Eğer Llama formatı bozduysa, B Planı: Düz metin olarak at
+            bot.edit_message_text(f"📊 Trend Raporu: {search_query}\n\n{ai_report}", chat_id=message.chat.id, message_id=waiting_message.message_id)
         
+        # 4. Veritabanına kaydet
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO searches (user_id, username, search_query, timestamp) VALUES (?, ?, ?, ?)",
+                  (message.from_user.id, message.from_user.username, search_query, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+        conn.close()
+
         logging.info(f"Başarılı bot araması: {search_query}")
         
     except Exception as e:
         logging.error(f"Bot işlemi sırasında hata: {e}", exc_info=True)
         bot.edit_message_text("Beklenmeyen bir sorun oluştu. Detaylar log dosyasına yazıldı.", chat_id=message.chat.id, message_id=waiting_message.message_id)
+        
+        # 2. Veriyi Groq'a (Llama'ya) gönder ve analiz raporunu al
+        ai_report = analyze_with_groq(repos)
+        
+        # 3. Sonucu kullanıcıya Telegram'dan gönder
+        bot.edit_message_text(f"📊 **Trend Raporu: {search_query}**\n\n{ai_report}", chat_id=message.chat.id, message_id=waiting_message.message_id, parse_mode="Markdown")
+        
+        # Veritabanına kaydet
+        conn = sqlite3.connect('bot_database.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO searches (user_id, username, search_query, timestamp) VALUES (?, ?, ?, ?)",
+                  (message.from_user.id, message.from_user.username, search_query, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+        conn.close()
+
+        logging.info(f"Başarılı bot araması: {search_query}")
+        
+    except Exception as e:
+        logging.error(f"Bot işlemi sırasında hata: {e}", exc_info=True)
+        bot.edit_message_text("Beklenmeyen bir sorun oluştu. Detaylar log dosyasına yazıldı.", chat_id=message.chat.id, message_id=waiting_message.message_id)
+
+# Veritabanını initialize et
+init_db()
 
 # Botu sürekli dinlemede tut
 print("🤖 Bot başarıyla çalıştırıldı! Telegram'dan mesaj atabilirsin.")
